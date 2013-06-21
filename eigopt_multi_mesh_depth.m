@@ -62,13 +62,20 @@ while 1,
 
         % ITERATE on this cell (if it's still relevant)
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        if boxes(j).status == 1,
-            for k = 1:opt.maxquadspercell-1,
-                boxes(j) = step(boxes(j));
+        gUB = min([boxes.UB]);
+        for k = 1:opt.maxquadspercell-1,
+            if boxes(j).status ~= 1,
+                break;
+            end
+
+            boxes(j) = step(boxes(j));
+
+            % REMOVE this cell if it is a baddie
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            if boxes(j).LB > gUB,
+                boxes(j).status = 0;
             end
         end
-
-
 
         % DECIDE whether to plot or display or not
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -92,23 +99,15 @@ while 1,
             end
         end
 
-
-
-        % REMOVE any cells whose LBs exceed the global UB
+        % SPLIT this box (if it's still relevant)
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        actives = find([boxes.status] == 1);
-        indx = actives(find([boxes(actives).LB] > min([boxes.UB])));
-        for k = indx, % there is apparently no vectorized way of doing this
-            boxes(k).status = 0;
-        end
-
-        % SPLIT this box
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        boxes(j).status = -1;
-        [newx0, newx1] = mitosis(boxes(j).lb, boxes(j).ub);
-        for k = 1:2^dim,
-            boxes(length(boxes)+1) = initbox(funname, ...
-                                newx0(k,:), newx1(k,:), pars, opt);
+        if boxes(j).status == 1,
+            boxes(j).status = -1;
+            [newx0, newx1] = mitosis(boxes(j).lb, boxes(j).ub);
+            for k = 1:2^dim,
+                boxes(length(boxes)+1) = initbox(funname, ...
+                                    newx0(k,:), newx1(k,:), pars, opt);
+            end
         end
 
         % REMOVE any cells whose LBs exceed the global UB
