@@ -1,10 +1,11 @@
 %
-function box = initbox(funname,lb,ub,gamma,itertol,tol,pars,minmax)
+function box = initbox(funname,lb,ub,pars,opt)
 
 box = struct('active', 1, 'funname', funname, ...
     'f', @(x) feval(funname, x, pars), 'lb', lb, 'ub', ub, ...
-    'gamma', gamma, 'maxit', itertol, 'tol', tol, 'pars', pars, ...
-    'minmax', minmax, 'dim', length(lb), 'nfevals', 1, 'fval', minmax*Inf);
+    'gamma', opt.gamma, 'maxfeval', opt.maxfeval, 'tol', opt.tol, ...
+    'pars', pars, 'minmax', opt.minmax, 'dim', length(lb), ...
+    'nfevals', 1, 'fval', opt.minmax*Inf);
 
 dim = box.dim;
 
@@ -45,7 +46,8 @@ for j = 1:2^dim
     end
 
     box.vertices(j).adjnum = 0;
-    box.vertices(j).quad = evalq(box.vertices(j).coor, box.quad(:,1), box.fmin(1), box.gmin(:,1),box.gamma);
+    box.vertices(j).quad = evalq(box.vertices(j).coor, ...
+            box.quad(:,1), box.fmin(1), box.gmin(:,1), box.gamma);
     box.vertices(j).index(dim+1) = 1;
 end
 

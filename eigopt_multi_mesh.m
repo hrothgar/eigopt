@@ -1,6 +1,6 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [hist, boxes] = eigopt_multi_mesh(funname, b0, b1, pars, set)
+function [hist, boxes] = eigopt_multi_mesh(funname, b0, b1, pars, opt)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % VARIABLES
 %    boxes(j).active
@@ -17,8 +17,8 @@ function [hist, boxes] = eigopt_multi_mesh(funname, b0, b1, pars, set)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % convert minmax to a sign constant
-minmax = 0; % for now, let's just keep this simple
-minmax = 1 - 2*boolean(minmax);
+opt.minmax = 0; % for now, let's just keep this simple
+opt.minmax = 1 - 2*boolean(opt.minmax);
 
 % the dimensions of the problem must be consistent
 dim = length(b0);
@@ -27,43 +27,38 @@ if (dim ~= dim2)
     error('lengths of b0 and b1 must be the same');
 end
 
-% generate the first 2^dim cells
-xx0 = b0;
-xx1 = b1;
+% <boxes> is a struct array of mesh cells
+boxes(1) = initbox(funname, b0, b1, pars, opt);
 
-% boxes contains the mesh cells
-for j = 1:size(xx0,1),
-    x0 = xx0(j,:);
-    x1 = xx1(j,:);
-    boxes(j) = initbox(funname,x0,x1,set.gamma,set.maxfeval,set.tol,pars,minmax);
-end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % THE MAIN LOOP
+% If ever boxes(i).LB > min([boxes.UB]), then box <i> can be discarded.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% If ever boxes(i).LB > min(boxes.UB), then box <i> can be discarded.
 
-startflg = 1;
-plotlast = 0;
-displast = 0;
-histindx = 0;
-nfevals = 0;
-hist = repmat(struct('nfevals',NaN,'nverts',NaN,'ncells', ...
-    NaN,'LB',NaN,'UB',NaN,'z',NaN,'f',NaN, 'err', NaN), ...
-    set.maxfeval, 1);
+startflg = 1;   % just a flag for the first iteration
+plotlast = 0;   % keep track of when to plot
+displast = 0;   % keep track of when to verbose output
+histindx = 0;   % keep track of the history
 
-while startflg || ( abs(hist(histindx).UB - hist(histindx).LB) > set.tol ...
-                    && hist(histindx).nfevals <= set.maxfeval ),
+% save the history for analysis
+hist = repmat(struct('nfevals', NaN, 'nverts', NaN, 'ncells', ...
+    NaN, 'LB', NaN, 'UB', NaN, 'z', NaN, 'f', NaN, 'err', NaN), ...
+    opt.maxfeval, 1);
+
+% MAIN LOOP BEGIN
+while startflg || ( abs(hist(histindx).UB - hist(histindx).LB) > opt.tol ...
+                    && hist(histindx).nfevals <= opt.maxfeval ),
     startflg = 0;
     histindx = histindx + 1;
 
     % SPLIT if we are down to too few cells OR if a cell is past its prime
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    if set.splitting,
+    if opt.splitting,
         actives = find([boxes.active] == 1);
-        splitlist = find([boxes(actives).iternum] > set.cellsmitosisage);
+        splitlist = find([boxes(actives).iternum] > opt.maxquadspercell);
         splitlist = actives(splitlist);
-        if length(actives) <= set.endangeredlimit,
+        if length(actives) <= opt.mincellcount,
             splitlist = actives;
         end
         
@@ -72,9 +67,16 @@ while startflg || ( abs(hist(histindx).UB - hist(histindx).LB) > set.tol ...
             [newx0, newx1] = mitosis(boxes(j).lb, boxes(j).ub);
             for k = 1:2^dim,
                 boxes(length(boxes)+1) = initbox(funname, ...
-                    newx0(k,:),newx1(k,:),set.gamma,set.maxfeval,set.tol,pars,minmax);
+                                    newx0(k,:), newx1(k,:), pars, opt);
             end
         end
+    end
+
+    % REMOVE any cells whose LBs exceed the global UB
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    indx = actives(find([boxes(actives).LB] > min([boxes.UB])));
+    for i = indx, % there is apparently no vectorized way of doing this
+        boxes(i).active = 0;
     end
 
     % ITERATE on any active cells
@@ -95,8 +97,8 @@ while startflg || ( abs(hist(histindx).UB - hist(histindx).LB) > set.tol ...
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     nfevals = sum([boxes.nfevals]);
     actives = find([boxes.active] == 1);
-    plotnow = nfevals - plotlast > set.plotfreq;
-    dispnow = nfevals - displast > set.dispfreq;
+    plotnow = nfevals - plotlast > opt.plotfreq;
+    dispnow = nfevals - displast > opt.dispfreq;
     if plotnow, plotlast = nfevals; end
     if dispnow, displast = nfevals; end
 
@@ -130,9 +132,11 @@ while startflg || ( abs(hist(histindx).UB - hist(histindx).LB) > set.tol ...
     % OUTPUT information at regular intervals
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     if dispnow,
-        fprintf('nfevals:%d  LB:%.8f  UB:%.8f  #verts:%d  #cells:%d\n', ...
-            hist(histindx).nfevals, hist(histindx).LB, hist(histindx).UB, ...
-            hist(histindx).nverts, hist(histindx).ncells);
+        fprintf('nfevals:%d  acc:%.1e  UB:%.8f  #verts:%d  #cells:%d (%d)\n', ...
+            hist(histindx).nfevals, hist(histindx).err, ...
+            hist(histindx).UB, ...
+            hist(histindx).nverts, hist(histindx).ncells, ...
+            max([boxes(actives).iternum]));
     end
 end
 

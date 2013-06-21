@@ -314,13 +314,6 @@ for rubbish = 1, % calm down everybody, we're stepping only once here
     end
 
     box.LB = box.vertices(box.heap(1)).quad;
-
-    % if (mod(box.iternum,set.plotfreq) == 0)
-    %     figure(1);
-    %     plot_graph(box.vertices,box.heap,box.heaplength,box.quad, ...
-    %         boundarylist,boundaryl,notboundarylist,notboundaryl);
-    % end
-
 end
 
 box.nfevals = box.iternum;
