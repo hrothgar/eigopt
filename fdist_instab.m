@@ -8,12 +8,17 @@ function [f, g] = fdist_instab(omega,pars)
 % note:
 %		the input matrix A must be passed through pars.A
 
+
+
 A = pars.A;
 [n,m] = size(A);
+
 
 if (n ~= m)
 	error('the input matrix must be square');
 end
+
+
 
 if (n <= 150)
 	[U,S,V] = svd(A - eye(n)*i*omega);
@@ -33,5 +38,8 @@ else
 
 	g = imag(um'*vm);
 end
+
+
+
 
 return;

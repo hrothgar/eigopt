@@ -2,8 +2,12 @@ function [heap, heaplength] = heapupdate(heap,heaplength,vertices,index)
 % Mustafa Kilic, Emre Mengi and E. Alper Yildirim
 % (Modified on July 24th, 2012)
 
+
 % first find the vertex on the heap
 index = find(heap == index);
+
+
+
 
 while ((2*index <= heaplength)		&	(vertices(heap(index)).quad > min(vertices(heap(min(2*index+1,heaplength))).quad, vertices(heap(2*index)).quad)))
 
@@ -23,4 +27,5 @@ while ((2*index <= heaplength)		&	(vertices(heap(index)).quad > min(vertices(hea
 		
 end
 
-return
+
+return;

@@ -2,7 +2,9 @@ function heap = heapremove(heap,heaplength,vertices,index)
 % Mustafa Kilic, Emre Mengi and E. Alper Yildirim
 % (Modified on July 24th, 2012)
 
+
 index = find(heap == index);
+
 vertices(heap(index)).quad = inf;
 
 temp = heap(index);
@@ -11,8 +13,10 @@ heap(heaplength) = temp;
 
 heaplength = heaplength - 1;
 
-while ( (2*index <= heaplength) ...
-	& (vertices(heap(index)).quad > min(vertices(heap(2*index+1)).quad, vertices(heap(2*index)).quad)) )
+
+
+
+while ((2*index <= heaplength)		&	(vertices(heap(index)).quad > min(vertices(heap(2*index+1)).quad, vertices(heap(2*index)).quad)))
 
 	if (vertices(heap(2*index+1)).quad < vertices(heap(2*index)).quad)
 		temp = heap(2*index + 1);
@@ -30,4 +34,5 @@ while ( (2*index <= heaplength) ...
 		
 end
 
-return
+
+return;

@@ -1,28 +1,37 @@
-function plot_graph(box)
-if box.active ~= 1, return, end
+function quadval = plot_graph(vertices,heap,heaplength,boundarylist,boundaryl,notboundarylist,notboundaryl,fignum)
 
-% vertices and their adjacendies
-for j = 1:box.heaplength
-    cvertex = box.heap(j);
-    
-    for k = 1:box.vertices(cvertex).adjnum;
-        avertex = box.vertices(cvertex).adjacency(k);   
-        plot([box.vertices(cvertex).coor(1) box.vertices(avertex).coor(1)], ...
-             [box.vertices(cvertex).coor(2) box.vertices(avertex).coor(2)],'k-');
-    end
-    
-    plot(box.vertices(cvertex).coor(1),box.vertices(cvertex).coor(2),'k*');
+
+figure(fignum);
+hold off;
+
+for j = 1:heaplength
+	
+	cvertex = heap(j);
+	
+	for k = 1:vertices(cvertex).adjnum;
+		avertex = vertices(cvertex).adjacency(k);	
+		plot([vertices(cvertex).coor(1) vertices(avertex).coor(1)],[vertices(cvertex).coor(2) vertices(avertex).coor(2)],'k-');  
+
+		if ((j == 1) & (k == 1))
+			hold on;
+		end
+	end
+
+	
+	plot(vertices(cvertex).coor(1),vertices(cvertex).coor(2),'k*');
 end
 
-% function evalation points
-for j = 1:size(box.quad,2)
-    plot(box.quad(1,j), box.quad(2,j), 'b*');
+
+for j = 1:boundaryl
+	cvertex = boundarylist(j);
+	plot(vertices(cvertex).coor(1),vertices(cvertex).coor(2),'b*');
 end
 
-% the outline of the box
-plot([box.lb(1)*[1 1] box.ub(1)*[1 1] box.lb(1)], ...
-     [box.lb(2) box.ub(2)*[1 1] box.lb(2)*[1 1]], 'c--')
+for j = 1:notboundaryl
+	cvertex = notboundarylist(j);
+	plot(vertices(cvertex).coor(1),vertices(cvertex).coor(2),'bs');
+end
 
-axis off
 
-return
+
+return;

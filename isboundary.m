@@ -3,6 +3,14 @@ function bool = isboundary(vertices,vertnum)
 % (Modified version July 30, 2012)
 %
 
-bool = ~(length(find(vertices(vertnum).index > 0)) > 1);
+nonboundary = find(vertices(vertnum).index > 0);
+
+
+if length(nonboundary) > 1
+	bool = 0;
+else
+	bool = 1;
+end
+
 
 return;
