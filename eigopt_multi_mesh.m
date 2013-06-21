@@ -154,30 +154,18 @@ return
 rng(1);
 pars.A = full(gallery('poisson',15));
 pars.B = randn(225,100);
-[r,bb] = eigopt_multi_mesh('fdist_uncont',[-2 -pi],[6 8-pi],-4,2000,10^-6,pars);
+[r,bb] = eigopt_multi_mesh('fdist_uncont',[-2 -pi],[6 8-pi],pars,set);
 plot_results(r);
 
 rng(1);
 pars.A = randn(10);
-[r,bb] = eigopt_multi_mesh('fdist_defective',[-2 -pi],[6 8-pi],-4,2000,10^-6,pars);
+[r,bb] = eigopt_multi_mesh('fdist_defective',[-2 -pi],[6 8-pi],pars,set);
 plot_results(r);
 
 rng(1);
 pars.A = randn(10);
-[r,bb] = eigopt_multi_mesh('fdist_triple',[-2 -pi],[6 8-pi],-4,2000,10^-6,pars);
+[r,bb] = eigopt_multi_mesh('fdist_triple',[-2 -pi],[6 8-pi],pars,set);
 plot_results(r);
 
 figure; hist([bb.iternum],15)
 %}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% SOME TEST RESULTS
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Table gives # function evaluations for different trials
-%
-% trial 1 box: [-2 -3],[6 5]
-% trial 2 box: [-2 -pi],[6 8-pi]
-%                                #1      #2
-% splitting interval = 40    |  773  |  624  |
-% split when one cell left   |  342  |  386  |
-% split when two cells left  |  500  |  386  |

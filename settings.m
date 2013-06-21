@@ -1,8 +1,8 @@
 
 clear set;
 
-set.plotfreq = Inf;
-set.dispfreq = Inf;
+set.plotfreq = 20;
+set.dispfreq = 10;
 
 set.splitting = 1;
 set.endangeredlimit = 1;
