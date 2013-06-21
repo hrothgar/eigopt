@@ -2,7 +2,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % EXAMPLES
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function example(n, dimension)
+function example_depth(n, dimension)
 if nargin < 1, n = 1; end
 if nargin < 2, dimension = 2; end
 
@@ -12,8 +12,6 @@ opt.plotfreq = 20;          % plotting frequency (if 2D)
 opt.dispfreq = 1;           % verbose output frequency
 
 %%% MESH
-% opt.splitting = 1;          % master flag for splitting
-% opt.depthfirst = 0;         % flag for search type; 0 => breadth-first
 opt.mincellcount = 1;       % split all cells if there are this many or fewer
 opt.maxquadspercell = 40;   % maximum number of iterations on a single cell
 
