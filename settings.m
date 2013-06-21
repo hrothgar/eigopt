@@ -1,13 +1,13 @@
 
-clear set;
+clear opt;
 
-set.plotfreq = 20;
-set.dispfreq = 10;
+opt.plotfreq = 20;
+opt.dispfreq = 1;
 
-set.splitting = 1;
-set.endangeredlimit = 1;
-set.cellsmitosisage = Inf;
+opt.splitting = 1;
+opt.endangeredlimit = 1;
+opt.cellsmitosisage = 23;
 
-set.maxfeval = 2000;
-set.tol = 1e-6;
-set.gamma = -4;
+opt.maxfeval = 2000;
+opt.tol = 1e-6;
+opt.gamma = -4;

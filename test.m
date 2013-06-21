@@ -7,23 +7,23 @@ funname = 'fdist_uncont';
 lb = [-2 -pi];
 ub = [6 8-pi];
 
-clear set;
-set.plotfreq = Inf;
-set.dispfreq = Inf;
-set.splitting = 1;
-set.endangeredlimit = 1;
-set.cellsmitosisage = Inf;
-set.maxfeval = 2000;
-set.tol = 1e-6;
-set.gamma = -4;
+clear opt;
+opt.plotfreq = Inf;
+opt.dispfreq = Inf;
+opt.splitting = 1;
+opt.endangeredlimit = 1;
+opt.cellsmitosisage = Inf;
+opt.maxfeval = 2000;
+opt.tol = 1e-6;
+opt.gamma = -4;
 
 tic;
-[r,bb] = eigopt_multi_mesh(funname,lb,ub,pars,set);
+[r,bb] = eigopt_multi_mesh(funname,lb,ub,pars,opt);
 t1 = toc;
 
 tic;
 [f, z, lbound, nfevals] = eigopt_multi_main(funname, lb, ub, ...
-                    set.gamma, set.maxfeval, set.tol, pars, [], 0);
+                    opt.gamma, opt.maxfeval, opt.tol, pars, [], 0);
 t2 = toc;
 
 disp(['Mesh: f=' num2str(r(end).f) ', #evals=' num2str(r(end).nfevals) ', t=' num2str(t1)]);

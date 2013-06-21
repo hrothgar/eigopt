@@ -1,8 +1,6 @@
 
 function plot_results(r)
 
-figure;
-
 subplot(2,2,1)
 plot([r.nfevals], [r.nverts])
 xlabel('# function evals')

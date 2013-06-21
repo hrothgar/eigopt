@@ -85,6 +85,10 @@ for rubbish = 1, % calm down everybody, we're stepping only once here
 
     deadboundaryl = 0;
 
+    % if (mod(box.iternum,10) == 0)
+    %     display(notboundaryl + boundaryl);
+    % end
+
     % (2) REMOVE INTERIOR DEAD VERTICES
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Easy, no need to modify the alive
@@ -266,7 +270,6 @@ for rubbish = 1, % calm down everybody, we're stepping only once here
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     for j = oldlength+1:verticesl
         for k = j+1:verticesl
-        
             if (length(intersect(box.vertices(j).index,box.vertices(k).index)) == dim)
                 % newly added jth and kth vertices are adjacent
                 adjnum = box.vertices(j).adjnum;

@@ -52,7 +52,7 @@ hist = repmat(struct('nfevals',NaN,'nverts',NaN,'ncells', ...
     NaN,'LB',NaN,'UB',NaN,'z',NaN,'f',NaN, 'err', NaN), ...
     set.maxfeval, 1);
 
-while startflg || ( hist(histindx).UB - hist(histindx).LB > set.tol ...
+while startflg || ( abs(hist(histindx).UB - hist(histindx).LB) > set.tol ...
                     && hist(histindx).nfevals <= set.maxfeval ),
     startflg = 0;
     histindx = histindx + 1;
@@ -144,28 +144,3 @@ hist(indx:end) = [];
 hist(end)
 
 return
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% EXAMPLE
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%{
-rng(1);
-pars.A = full(gallery('poisson',15));
-pars.B = randn(225,100);
-[r,bb] = eigopt_multi_mesh('fdist_uncont',[-2 -pi],[6 8-pi],pars,set);
-plot_results(r);
-
-rng(1);
-pars.A = randn(10);
-[r,bb] = eigopt_multi_mesh('fdist_defective',[-2 -pi],[6 8-pi],pars,set);
-plot_results(r);
-
-rng(1);
-pars.A = randn(10);
-[r,bb] = eigopt_multi_mesh('fdist_triple',[-2 -pi],[6 8-pi],pars,set);
-plot_results(r);
-
-figure; hist([bb.iternum],15)
-%}
