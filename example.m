@@ -11,7 +11,7 @@ opt.plotfreq = 20;          % plotting frequency (if 2D)
 opt.dispfreq = 1;           % verbose output frequency
 
 %%% MESH
-opt.splitting = 1;          % master flag for splitting
+opt.splitting = 0;          % master flag for splitting
 opt.depthfirst = 0;         % flag for search type; 0 => breadth-first
 opt.mincellcount = 1;       % split all cells if there are this many or fewer
 opt.maxquadspercell = 20;   % maximum number of iterations on a single cell

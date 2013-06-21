@@ -3,7 +3,7 @@
 function [hist, boxes] = eigopt_multi_mesh(funname, b0, b1, pars, opt)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % VARIABLES
-%    boxes(j).active
+%    boxes(j).status
 %          1 = iterating
 %          0 = inactive; bounds proved it irrelevant
 %         -1 = inactive; split into smaller cells
@@ -55,15 +55,15 @@ while startflg || ( abs(hist(histindx).UB - hist(histindx).LB) > opt.tol ...
     % SPLIT if we are down to too few cells OR if a cell is past its prime
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     if opt.splitting,
-        actives = find([boxes.active] == 1);
-        splitlist = find([boxes(actives).iternum] > opt.maxquadspercell);
+        actives = find([boxes.status] == 1);
+        splitlist = find([boxes(actives).iternum] >= opt.maxquadspercell);
         splitlist = actives(splitlist);
         if length(actives) <= opt.mincellcount,
             splitlist = actives;
         end
         
         for j = splitlist,
-            boxes(j).active = -1;
+            boxes(j).status = -1;
             [newx0, newx1] = mitosis(boxes(j).lb, boxes(j).ub);
             for k = 1:2^dim,
                 boxes(length(boxes)+1) = initbox(funname, ...
@@ -74,14 +74,15 @@ while startflg || ( abs(hist(histindx).UB - hist(histindx).LB) > opt.tol ...
 
     % REMOVE any cells whose LBs exceed the global UB
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    actives = find([boxes.status] == 1);
     indx = actives(find([boxes(actives).LB] > min([boxes.UB])));
     for i = indx, % there is apparently no vectorized way of doing this
-        boxes(i).active = 0;
+        boxes(i).status = 0;
     end
 
     % ITERATE on any active cells
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    actives = find([boxes.active] == 1);
+    actives = find([boxes.status] == 1);
     for j = actives,
         boxes(j) = step(boxes(j));
     end
@@ -90,13 +91,13 @@ while startflg || ( abs(hist(histindx).UB - hist(histindx).LB) > opt.tol ...
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     indx = actives(find([boxes(actives).LB] > min([boxes.UB])));
     for i = indx, % there is apparently no vectorized way of doing this
-        boxes(i).active = 0;
+        boxes(i).status = 0;
     end
 
     % DECIDE whether to plot or display or not
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     nfevals = sum([boxes.nfevals]);
-    actives = find([boxes.active] == 1);
+    actives = find([boxes.status] == 1);
     plotnow = nfevals - plotlast > opt.plotfreq;
     dispnow = nfevals - displast > opt.dispfreq;
     if plotnow, plotlast = nfevals; end

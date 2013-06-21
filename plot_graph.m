@@ -1,5 +1,5 @@
 function plot_graph(box)
-if box.active ~= 1, return, end
+if box.status ~= 1, return, end
 
 % vertices and their adjacendies
 for j = 1:box.heaplength
