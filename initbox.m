@@ -1,37 +1,43 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% initialize a new mesh cell ("box")
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function box = initbox(funname,lb,ub,pars,opt)
+%------------------------------------------------------------------%
+% initialize a new mesh box
+%------------------------------------------------------------------%
+function box = initbox(func, bounds, opt, varargin{:})
 
-box = struct('status', 1, 'funname', funname, ...
-    'f', @(x) feval(funname, x, pars), 'lb', lb, 'ub', ub, ...
-    'gamma', opt.gamma, 'maxfeval', opt.maxfeval, 'tol', opt.tol, ...
-    'pars', pars, 'minmax', opt.minmax, 'dim', length(lb), ...
-    'nfevals', 1, 'fval', opt.minmax*Inf);
+dim = size(bounds,1);
+box = struct( 'status', 1 ...
+            , 'funname', func ...
+            , 'f', @(x) feval(func, x, varargin{:}) ...
+            , 'lb', bounds(:,1) ...
+            , 'ub', bounds(:,2) ...
+            , 'gamma', opt.gamma ...
+            , 'maxfeval', opt.maxfeval ...
+            , 'tol', opt.tol ...
+            , 'pars', pars ...                  %-- FIXME // varargin{:}
+            , 'dim', dim ...
+            , 'nfevals', 1 ...
+            , 'fval', opt.minmax*Inf ...
+            , 'xx', [] ...
+            , 'fmin', nan(1, opt.maxfeval) ...
+            , 'gmin', nan(dim, opt.maxfeval) ...
+            );
 
-dim = box.dim;
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % CREATE THE GRAPH
-% this is everything before the main loop
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% this is everything before The Main Loop
+%------------------------------------------------------------------%
 
-% x0 = mid point of the box
-box.quad = (lb(:)+ub(:))/2;
+%-- x0 = midpoint of the box
+box.xx = (box.lb(:) + box.ub(:)) / 2;
 
-% evaluate the function and its gradient at x0
+%-- evaluate the function and its gradient at x0
+[box.fmin(1), box.gmin(:,1)] = box.f(box.xx(:,1));
 
-[box.fmin(1),box.gmin(:,1)] = box.f(box.quad(:,1));
-box.fmin(1) = box.minmax*box.fmin(1);
-box.gmin(:,1) = box.minmax*box.gmin(:,1);
-
-% construct the boundary vertices
-for j = 1:2^dim
+%-- construct the boundary vertices
+for j = 1:2^dim,
     k = j-1;
     l = 1;
 
-    while (k ~= 0)
-        if (mod(k,2) == 0)
+    while (k ~= 0),
+        if (mod(k,2) == 0),
             box.vertices(j).coor(l,1) = box.lb(l);
             box.vertices(j).index(l) = -(2*l - 1);
         else
@@ -42,21 +48,21 @@ for j = 1:2^dim
         l = l+1;
     end
 
-    for k = l:dim
+    for k = l:dim,
         box.vertices(j).coor(k,1) = box.lb(k);
         box.vertices(j).index(k) = -(2*k - 1);
     end
 
     box.vertices(j).adjnum = 0;
-    box.vertices(j).quad = evalq(box.vertices(j).coor, ...
-            box.quad(:,1), box.fmin(1), box.gmin(:,1), box.gamma);
+    box.vertices(j).xx = evalq(box.vertices(j).coor, ...
+            box.xx(:,1), box.fmin(1), box.gmin(:,1), box.gamma);
     box.vertices(j).index(dim+1) = 1;
 end
 
 % boundary vertex adjacencies
-for j = 1:2^dim
-    for k = j+1:2^dim
-        if (length(intersect(box.vertices(j).index,box.vertices(k).index)) == dim)
+for j = 1:2^dim,
+    for k = j+1:2^dim,
+        if (length(intersect(box.vertices(j).index,box.vertices(k).index)) == dim),
             adjnum = box.vertices(j).adjnum;
             box.vertices(j).adjacency(adjnum+1) = k;
             box.vertices(j).adjnum = box.vertices(j).adjnum + 1;
@@ -71,7 +77,7 @@ end
 box.heap = heapsort(box.vertices);
 box.heaplength = 2^dim;
 
-box.LB = box.vertices(box.heap(1)).quad;
+box.LB = box.vertices(box.heap(1)).xx;
 box.UB = box.fmin(1);
 
 box.iternum = 1;
