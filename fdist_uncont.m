@@ -1,4 +1,4 @@
-function [f, g] = fdist_uncont(lambda,pars)
+function [f, g] = fdist_uncont(lambda, pars)
 % Emre Mengi (Modified on August 19, 2011)
 %
 % call: function [f, g] = fdist_uncont(lambda,pars)
