@@ -1,0 +1,33 @@
+Discussion points about the algorithm
+
+    1   Don't divide along every dimension for each split;
+        e.g. only along the largest dimension of the box.
+
+    2   The `gamma` parameter is worrisome. Convergence
+        speed is highly dependent on it. For the default
+        demo run of `eigopt` (which uses `fdist_uncont`),
+            gamma = -0.3    takes 3.39 seconds,
+            gamma = -10     takes 82.47 seconds.
+
+Changelog
+
+    1 • Refactored a lot of code.
+      • Put everything in one big file `eigopt.m`.
+      • Calling   hh = eigopt('-gethandles')   returns
+        all subfunction handles (e.g. for unit testing).
+
+    2   Changed the boolean test in the stack creation from
+
+            ismember(adjacent, union( union( ...
+                boundarylist(1:boundaryl), ...
+                notboundarylist(1:notboundaryl)), ...
+                stack(1:stackl))) == 0
+
+        to
+
+            ~any(adjacent == [boundarylist(1:boundaryl) ...
+                        notboundarylist(1:notboundaryl) ...
+                        stack(1:stackl)]),
+
+        which on average runs around 30x faster -- regardless
+        of the dimension of the problem, it seems.
