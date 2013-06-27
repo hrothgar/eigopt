@@ -1,6 +1,6 @@
 
 rng(1);
-dim = 5;
+dim = 3;
 clear expars;
 for d = 1:dim+1,
     A = randn(dim,dim)/2;

@@ -1,14 +1,4 @@
-Discussion points about the algorithm
-
-    1   Don't divide along every dimension for each split;
-        e.g. only along the largest dimension of the box.
-
-    2   The `gamma` parameter is worrisome. Convergence
-        speed is highly dependent on it. For the default
-        demo run of `eigopt` (which uses `fdist_uncont`),
-            gamma = -0.3    takes 3.39 seconds,
-            gamma = -10     takes 82.47 seconds.
-
+-------------------------------------------------------------
 Changelog
 
     1 • Refactored a lot of code.
@@ -31,3 +21,56 @@ Changelog
 
         which on average runs around 30x faster -- regardless
         of the dimension of the problem, it seems.
+
+    3   Optimized some wasteful code in initializing the
+        vertices of a new box. The original code contained
+        nested for-loops, which for high-dimensional
+        problems is extremely slow. The new code is about
+        700x faster in 6-dimensions (0.002s compared to 1.5s).
+
+    4*  Changed the data structure of the vertices.
+        Adjacencies are now encoded as a sparse logical matrix.
+        Set operations are >10x faster this way.
+        E.g., try
+
+            n = 100000; rr = rand(n,1);
+            xx = find(rr < 0.6);
+            yy = find(rr > 0.4);
+            sx = sparse(xx,1,true,n,1);
+            sy = sparse(yy,1,true,n,1);
+            tic, zz = intersect(xx, yy); toc
+            tic, sz = sx & sy; toc
+
+
+-------------------------------------------------------------
+Discussion points about the algorithm
+
+    1   Don't divide along every dimension for each split;
+        e.g. only along the largest dimension of the box.
+
+    2   The `gamma` parameter is worrisome. Convergence
+        speed is highly dependent on it. For the default
+        demo run of `eigopt` (which uses `fdist_uncont`),
+            gamma = -0.3    takes 3.39 seconds,
+            gamma = -10     takes 82.47 seconds.
+
+    3   See http://research.microsoft.com/en-us/um/
+                  people/minka/software/matlab.html
+
+          * Manipulate sets of integers
+
+            The fastest way to do this is with sparse logical
+            vectors. If you want to use sorted arrays of
+            integers instead, beware that the Matlab functions
+            `setdiff`, `union`, etc. are not optimized for this
+            case and will be a bottleneck. Optimized functions
+            for the sorted case are included in lightspeed.
+
+          * Represent a graph
+
+            Use a sparse logical adjacency matrix, and use
+            matrix operations whenever possible. For example,
+            if G is symmetric (i.e. an undirected graph) then
+            G*G gives the number of neighbors in common to
+            nodes i and j, for all (i,j). See Kevin Murphy's
+            graph toolbox.
