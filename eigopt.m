@@ -31,9 +31,9 @@ end
 
 %-- set user options
 if ~exist('opts') || ~isstruct(opts), opts = []; end
-defaults.plotfreq   = 40;       %-- frequency of plotting (if 2-D)
-defaults.dispfreq   = 40;       %-- frequency of verbose output of status
-defaults.splitting  = 1;        %-- recursively split into subboxes?
+defaults.plotfreq   = 1;      %-- frequency of plotting (if 2-D)
+defaults.dispfreq   = 1;        %-- frequency of verbose output of status
+defaults.splitting  = 0;        %-- recursively split into subboxes?
 defaults.searchtype = 0;        %-- 0 == breadth-first; 1 == depth-first
 defaults.maxquads   = 40;       %-- maximum number of quadratics per box
 defaults.maxfeval   = 4000;     %-- maximum number of function evaluations
@@ -234,6 +234,7 @@ return
 %------------------------------------------------------------------%
 function box = OPTinitbox(func, bounds, opts, varargin)
 
+bignum = 1e5;               % FIXME: really
 dim = size(bounds,1);
 pars = varargin{:}{:};
 
@@ -257,32 +258,40 @@ box = struct( 'status', 1 ...
 
 % intialize vertices of the new box
 %------------------------------------------------------------------%
+%-- preallocate for vertices
+box.vertices(1:bignum) = repmat( struct( ...
+    'coor', NaN, 'index', NaN, ...
+    'adj', sparse([],[],true,1,bignum), ...
+    'qval', NaN, 'adjnum', NaN ...
+    ), 1, bignum);
 
 %-- normalized boundary vertex coordinates
 dim2 = 2^dim;
 ee = ones(dim2,1);
-coords = de2bi(0:dim2-1,dim);
-coordscell = mat2cell( box.bounds(ee*(1:dim)+3*coords)', dim, ee );
+coords = de2bi(0:dim2-1, dim);
+coordscell = mat2cell( box.bounds(ee*(1:dim)+dim*coords)', dim, ee );
 [box.vertices(1:dim2).coor] = coordscell{:};
 
 %-- boundary vertex index sets
-indexcell = mat2cell( [ee*(-2*dim+1:2:-1)-fliplr(coords) ...
-                        ee], ee );
+indexcell = mat2cell( [ee*(-2*dim+1:2:-1)-fliplr(coords) ee], ee );
 [box.vertices(1:dim2).index] = indexcell{:};
 
 %-- boundary vertex adjacencies
-pows = 2.^(0:dim-1);
-adj = bsxfun(@bitxor, [0:dim2-1]', pows)+1;     %-- generates hypercube adjacencies
-sbadj = sparse(repmat(1:dim2, 1, dim), ...      %-- converts adj into a sparse
-                adj(:), true, dim2, dim2);      %   logical matrix of adjacencies
-sbadjcell = mat2cell(sbadj, ee);                %-- convert it to a cell array
-[box.vertices(1:dim2).adj] = sbadjcell{:};      %-- finally, set all vertex adjacencies
+adj = bsxfun(@bitxor, [0:dim2-1]', 2.^(0:dim-1))+1; %-- generates hypercube adjacencies
+sladj = sparse(repmat(1:dim2, 1, dim), ...          %-- converts adj into a sparse
+                adj(:), true, dim2, bignum);        %   logical matrix of adjacencies
+sladjcell = mat2cell(sladj, ee);                    %-- convert it to a cell array
+[box.vertices(1:dim2).adj] = sladjcell{:};          %-- finally, set all vertex adjacencies
 
 %-- generate the quadratic model values at vertices
-qq = OPTevalq([box.vertices.coor], box.xx(:,box.iternum), ...
+qq = OPTevalq([box.vertices(1:dim2).coor], box.xx(:,box.iternum), ...
                box.fmin(box.iternum), box.gmin(:,box.iternum), box.gamma);
 qq = mat2cell(qq, 1, ee);
 [box.vertices(1:dim2).qval] = qq{:};
+
+%-- adjacency numbers of each
+adjnums = mat2cell(dim*ones(dim2,1),ones(dim2,1));
+[box.vertices(1:dim2).adjnum] = adjnums{:};
 
 %-- set up the heap for this box
 box.heap = OPTheapsort(box.vertices);
@@ -311,35 +320,39 @@ box.xx(:,box.iternum) = box.vertices(box.heap(1)).coor;
 
 %-- function value and gradient at the center of the new model
 [box.fmin(box.iternum),box.gmin(:,box.iternum)] = box.f(box.xx(:,box.iternum));
-
-if (box.fmin(box.iternum) < box.UB)
-    box.UB = box.fmin(box.iternum);
-end
+box.UB = min(box.UB, box.fmin(box.iternum));
 
 % (1) DETERMINE DEAD VERTICES
 % some of these are interior dead
 % some are dead on the boundary
+%
+% note: this could be faster maybe if written recursively
 %------------------------------------------------------------------%
-stack(1) = box.heap(1);
-stackl = 1;
+bignum = 1e5;               % FIXME: really
+stack2 = sparse(1, box.heap(1), true, 1, bignum);
+stackl = 1;     % number of elements in stack
 
 notboundaryl = 0;
-notboundarylist(1) = -1;
+notboundarylist2 = sparse([], [], true, 1, bignum);
+
 boundaryl = 0;
-boundarylist(1) = -1;
+boundarylist2 = sparse([], [], true, 1, bignum);
+
+deadboundaryl = 0;
+deadboundarylist2 = sparse([], [], true, 1, bignum);
 
 while (stackl > 0),
-    vertex = stack(stackl);
+    vertex = find(stack2, 1, 'first');      %-- not optimal
     stackl = stackl - 1;
-    boundary = 0;
+    boundary = false;
 
     %-- EXPAND TO THE ADJACENT VERTICES
     for adj = find(box.vertices(vertex).adj),
 
         %-- if the boolean is false, then `adj` is already inspected
         %   or to be inspected soon (in the stack)
-        if ~any(adj == [boundarylist(1:boundaryl) ...
-                notboundarylist(1:notboundaryl) stack(1:stackl)]),
+        if adj > bignum, keyboard, end % FIXME
+        if ~( boundarylist2(adj) | notboundarylist2(adj) | stack2(adj) ),
 
             qnew = OPTevalq(box.vertices(adj).coor, box.xx(:,box.iternum), ...
                     box.fmin(box.iternum), box.gmin(:,box.iternum), box.gamma);
@@ -347,26 +360,24 @@ while (stackl > 0),
             if (qnew > box.vertices(adj).qval),
                 %-- ADJACENT IS DEAD, ADD ADJACENT TO THE STACK
                 stackl = stackl + 1;
-                stack(stackl) = adj;
+                stack2(adj) = true;
             else
                 %-- ADJACENT IS ALIVE, SO VERTEX IS ON THE BOUNDARY OF THE SET OF DEAD VERTICES
-                boundary = 1;
+                boundary = true;
             end
         end
     end
 
-    if  boundary == 0,
-        %-- DEAD INTERIOR VERTICES
-        notboundaryl = notboundaryl + 1;
-        notboundarylist(notboundaryl) = vertex;
-    else
+    if  boundary,
         %-- DEAD BOUNDARY VERTICES
         boundaryl = boundaryl + 1;
-        boundarylist(boundaryl) = vertex;
+        boundarylist2(vertex) = true;
+    else
+        %-- DEAD INTERIOR VERTICES
+        notboundaryl = notboundaryl + 1;
+        notboundarylist2(vertex) = true;
     end
 end
-
-deadboundaryl = 0;
 
 % if (mod(box.iternum,10) == 0)
 %     display(notboundaryl + boundaryl);
@@ -376,12 +387,15 @@ deadboundaryl = 0;
 % Easy, no need to modify the alive
 % vertices or introduce new vertices
 %------------------------------------------------------------------%
-for j = 1:notboundaryl
+for dead = find(notboundarylist2),
+    if ~length(dead), break, end            %-- hack
 
-    if OPTisboundary(box.vertices,notboundarylist(j));
+    disp('debug tiem.'), keyboard
+
+    if OPTisboundary(box.vertices, dead);
         deadisboundaryvertex = 1;
         deadboundaryl = deadboundaryl + 1;
-        deadboundarylist(deadboundaryl) = notboundarylist(j);
+        deadboundarylist(deadboundaryl) =  dead;
     else
         deadisboundaryvertex = 0;
     end
@@ -389,24 +403,22 @@ for j = 1:notboundaryl
     if (deadisboundaryvertex == 0)
         % Dead vertex is not a boundary vertex, remove it
         %------------------------------------------------------------------%
-        box.heap = OPTheapremove(box.heap,box.heaplength,box.vertices,notboundarylist(j));
-        box.vertices(box.heap(box.heaplength)).qval = inf;
-
+        box.heap = OPTheapremove(box.heap, box.heaplength, box.vertices, dead);
+        box.vertices(box.heap(box.heaplength)).qval = Inf;
         box.heaplength = box.heaplength - 1;
     else
         % Dead vertex is a boundary vertex, cannot be removed
         % (i) but need to update the function value
         %------------------------------------------------------------------%
-        deadboundary = notboundarylist(j);
-        box.vertices(deadboundary).qval = OPTevalq(box.vertices(deadboundary).coor, ...
+        box.vertices(dead).qval = OPTevalq(box.vertices(dead).coor, ...
                                 box.xx(:,box.iternum), box.fmin(box.iternum), ...
                                 box.gmin(:,box.iternum),box.gamma);
 
         % (ii) and the index set
         %------------------------------------------------------------------%
         for k = 1:dim+1
-            if ( box.vertices(deadboundary).index(k) > 0 )
-                box.vertices(deadboundary).index(k) = box.iternum;
+            if ( box.vertices(dead).index(k) > 0 )
+                box.vertices(dead).index(k) = box.iternum;
                 break;
             end
         end
@@ -427,20 +439,23 @@ end
 % vertex
 %------------------------------------------------------------------%
 
-verticesl = length(box.vertices);
+verticesl = find(isnan([box.vertices.adjnum]),1,'first') - 1;   %-- FIXME, is there another way?
 oldlength = verticesl;
-alldead = union(boundarylist(1:boundaryl),notboundarylist(1:notboundaryl));
+alldead2 = boundarylist2 | notboundarylist2;
+%~ alldead = union(boundarylist(1:boundaryl),notboundarylist(1:notboundaryl));
 
 %-- GO THROUGH THE LIST OF DEAD VERTICES ON THE BOUNDARY
-for j = 1:boundaryl
-    dead = boundarylist(j);
+for dead = find(boundarylist2),
+    if ~length(dead), break, end           %-- hack
+
     qnewdead = OPTevalq(box.vertices(dead).coor, box.xx(:,box.iternum), ...
                      box.fmin(box.iternum), box.gmin(:,box.iternum),box.gamma);
 
-    if OPTisboundary(box.vertices,dead);
+    if OPTisboundary(box.vertices, dead);
         deadisboundaryvertex = 1;
         deadboundaryl = deadboundaryl + 1;
-        deadboundarylist(deadboundaryl) = dead;
+        %~ deadboundarylist(deadboundaryl) = dead;
+        deadboundarylist2(dead) = true;
     else
         deadisboundaryvertex = 0;
     end
@@ -450,77 +465,87 @@ for j = 1:boundaryl
     %           tic, nnz(setdiff(xx,intersect(xx,yy))), toc
     %           tic, nnz(sx & xor(sx,sy)), toc
 
-    alivelist = setdiff(box.vertices(dead).adj, ...
-                        intersect(box.vertices(dead).adj, alldead));
-    alivelength = length(alivelist);
+    if length(box.vertices(dead).adj) ~= length(~alldead2), keyboard, end
+    alivelist2 = box.vertices(dead).adj & ~alldead2;
+    %~ alivelist2 = box.vertices(dead).adj & xor(box.vertices(dead).adj, alldead2);
+    %~ alivelist = setdiff(box.vertices(dead).adj, ...
+    %~                     intersect(box.vertices(dead).adj, alldead));
+    %~ alivelength = length(alivelist);
 
-    for l = 1:alivelength
-        alive = alivelist(l);
+    for alive = find(alivelist2),
+        if ~length(dead), break, end           %-- hack
+        %~ alive = alivelist(l);
 
         %-- THIS ADJACENT VERTEX IS ALIVE, MUST CREATE A NEW VERTEX
-        keyboard
         qnewalive = OPTevalq(box.vertices(alive).coor, box.xx(:,box.iternum), ...
                           box.fmin(box.iternum), box.gmin(:,box.iternum),box.gamma);
 
-                % I - FORM A NEW VERTEX BETWEEN THE DEAD and ALIVE
-                %------------------------------------------------------------------%
-                verticesl = verticesl + 1;
+        % I - FORM A NEW VERTEX BETWEEN THE DEAD and ALIVE
+        %------------------------------------------------------------------%
+        verticesl = verticesl + 1;
 
-                %(i) its coordinates
-                %------------------------------------------------------------------%
-                alpha = (qnewalive - box.vertices(alive).qval)/ ...
-                    ((qnewalive - box.vertices(alive).qval) - (qnewdead - box.vertices(dead).qval));
-                box.vertices(verticesl).coor = alpha*box.vertices(dead).coor ...
-                                            + (1-alpha)*box.vertices(alive).coor;
+        % (i) its coordinates
+        %------------------------------------------------------------------%
+        alpha = (qnewalive - box.vertices(alive).qval) / ...
+            ( (qnewalive - box.vertices(alive).qval) - ...
+                (qnewdead - box.vertices(dead).qval) );
+        box.vertices(verticesl).coor = alpha*box.vertices(dead).coor ...
+                                    + (1-alpha)*box.vertices(alive).coor;
 
-                %(ii) its index
-                %------------------------------------------------------------------%
-                box.vertices(verticesl).index = intersect(box.vertices(alive).index, ...
-                                                          box.vertices(dead).index);
-                box.vertices(verticesl).index(dim+1) = box.iternum;
+        % (ii) its index
+        %------------------------------------------------------------------%
+        % FIXME, ya
+        box.vertices(verticesl).index = intersect(box.vertices(alive).index, ...
+                                                  box.vertices(dead).index);
+        box.vertices(verticesl).index(dim+1) = box.iternum;
 
-                %(iii) its function value
-                %------------------------------------------------------------------%
-                box.vertices(verticesl).qval = OPTevalq(box.vertices(verticesl).coor, ...
-                                                     box.xx(:,box.iternum), ...
-                                                     box.fmin(box.iternum), ...
-                                                     box.gmin(:,box.iternum), box.gamma);
-                for k = 1:box.iternum-1
-                    qval = OPTevalq(box.vertices(verticesl).coor, ...
-                                box.xx(:,k), box.fmin(k), box.gmin(:,k), box.gamma);
-                    if (qval > box.vertices(verticesl).qval)
-                        box.vertices(verticesl).qval = qval;
-                    end
-                end
+        % (iii) its function value
+        %------------------------------------------------------------------%
+        box.vertices(verticesl).qval = OPTevalq(box.vertices(verticesl).coor, ...
+                                             box.xx(:,box.iternum), ...
+                                             box.fmin(box.iternum), ...
+                                             box.gmin(:,box.iternum), box.gamma);
 
-                %(iv) initialize its adjacency list
-                %------------------------------------------------------------------%
-                box.vertices(verticesl).adjnum = 1;
-                box.vertices(verticesl).adj(1) = alive;
+        % box.vertices(verticesl).qval = OPTevalq(box.vertices(verticesl).coor, ...
+        %                                      box.xx(:,box.iternum), ...
+        %                                      box.fmin(box.iternum), ...
+        %                                      box.gmin(:,box.iternum), box.gamma);
 
-                % II - ADD THE NEW VERTEX TO THE HEAP
-                %------------------------------------------------------------------%
-                box.heap = OPTheapinsert(box.heap,box.heaplength,box.vertices,verticesl);
-                box.heaplength = box.heaplength + 1;
+        % % is this super inefficient? what is going on here?
+        % for k = 1:box.iternum-1
+        %     qval = OPTevalq(box.vertices(verticesl).coor, ...
+        %                 box.xx(:,k), box.fmin(k), box.gmin(:,k), box.gamma);
+        %     if (qval > box.vertices(verticesl).qval)
+        %         box.vertices(verticesl).qval = qval;
+        %     end
+        % end
 
-                % III - UPDATE THE ADJACENCY LIST OF THE ALIVE VERTEX
-                %------------------------------------------------------------------%
-                k = 1;
-                while (box.vertices(alive).adj(k) ~= dead)
-                    k = k+1;
-                end
-                box.vertices(alive).adj(k) = verticesl;
+        % (iv) initialize its adjacency list
+        %------------------------------------------------------------------%
+        box.vertices(verticesl).adjnum = 1;
+        %~ box.vertices(verticesl).adj(1) = alive;
+        box.vertices(verticesl).adj(alive) = true;
+
+        % II - ADD THE NEW VERTEX TO THE HEAP
+        %------------------------------------------------------------------%
+        box.heap = OPTheapinsert(box.heap,box.heaplength,box.vertices,verticesl);
+        box.heaplength = box.heaplength + 1;
+
+        % III - UPDATE THE ADJACENCY LIST OF THE ALIVE VERTEX
+        %------------------------------------------------------------------%
+        %~ k = 1;
+        %~ while (box.vertices(alive).adj(k) ~= dead)
+        %~     k = k+1;
+        %~ end
+        %~ box.vertices(alive).adj(k) = verticesl;
+
+        box.vertices(alive).adj(dead) = false;
+        box.vertices(alive).adj(verticesl) = true;
     end
 
     % IV - REMOVE THE DEAD VERTEX
     %------------------------------------------------------------------%
-    if (deadisboundaryvertex == 0)
-        %-- dead vertex is not a boundary vertex 
-        box.heap = OPTheapremove(box.heap,box.heaplength,box.vertices,dead);
-        box.vertices(dead).qval = inf;
-
-        box.heaplength = box.heaplength - 1;
-    else
+    if deadisboundaryvertex,
         % dead vertex is on the boundary
         % (i) need to update the function value
         %------------------------------------------------------------------%
@@ -528,6 +553,7 @@ for j = 1:boundaryl
 
         % (ii) and the index set
         %------------------------------------------------------------------%
+        % FIXME ya
         for k = 1:dim+1
             if ( box.vertices(dead).index(k) > 0 )
                 box.vertices(dead).index(k) = box.iternum;
@@ -542,6 +568,11 @@ for j = 1:boundaryl
         % (iv) finally update the heap
         %------------------------------------------------------------------%
         box.heap = OPTheapupdate(box.heap,box.heaplength,box.vertices,dead);
+    else
+        %-- dead vertex is not a boundary vertex 
+        box.heap = OPTheapremove(box.heap,box.heaplength,box.vertices,dead);
+        box.vertices(dead).qval = Inf;
+        box.heaplength = box.heaplength - 1;
     end
 end
 
@@ -551,44 +582,51 @@ for j = oldlength+1:verticesl
     for k = j+1:verticesl
         if (length(intersect(box.vertices(j).index,box.vertices(k).index)) == dim)
             %-- newly added jth and kth vertices are adjacent
-            adjnum = box.vertices(j).adjnum;
-            box.vertices(j).adj(adjnum+1) = k;
+            %~ box.vertices(j).adj(adjnum+1) = k;
+            box.vertices(j).adj(k) = true;
             box.vertices(j).adjnum = box.vertices(j).adjnum + 1;
 
-            adjnum = box.vertices(k).adjnum;
-            box.vertices(k).adj(adjnum+1) = j;
+            %~ box.vertices(k).adj(adjnum+1) = j;
+            box.vertices(k).adj(j) = true;
             box.vertices(k).adjnum = box.vertices(k).adjnum + 1;    
         end
     end
 end
 
 for j = oldlength+1:verticesl
-    for k = 1:deadboundaryl
-        if (length(intersect(box.vertices(j).index,box.vertices(deadboundarylist(k)).index)) == dim)
+    %~ for k = 1:deadboundaryl
+    for k = find(deadboundarylist2),
+        if (length(intersect(box.vertices(j).index, box.vertices(k).index)) == dim)
             %-- newly added jth and the kth boundary vertices are adjacent
-            adjnum = box.vertices(j).adjnum;
-            box.vertices(j).adj(adjnum+1) = deadboundarylist(k);
+            %~ adjnum = box.vertices(j).adjnum;
+            %~ box.vertices(j).adj(adjnum+1) = deadboundarylist(k);
+            box.vertices(j).adj(k) = true;
             box.vertices(j).adjnum = box.vertices(j).adjnum + 1;
     
-            adjnum = box.vertices(deadboundarylist(k)).adjnum;
-            box.vertices(deadboundarylist(k)).adj(adjnum+1) = j;
-            box.vertices(deadboundarylist(k)).adjnum = box.vertices(deadboundarylist(k)).adjnum + 1;    
+            %~ adjnum = box.vertices(deadboundarylist(k)).adjnum;
+            %~ box.vertices(deadboundarylist(k)).adj(adjnum+1) = j;
+            %~ box.vertices(deadboundarylist(k)).adjnum = box.vertices(deadboundarylist(k)).adjnum + 1;    
+            box.vertices(k).adj(j) = true;
+            box.vertices(k).adjnum = box.vertices(k).adjnum + 1;
         end
     end
 end
 
-for j = 1:deadboundaryl
-    for k = j+1:deadboundaryl
-        if (length(intersect(box.vertices(deadboundarylist(j)).index,...
-                             box.vertices(deadboundarylist(k)).index)) == dim)
+%~ for j = 1:deadboundaryl
+%~     for k = j+1:deadboundaryl
+for j = find(deadboundarylist2),
+    for k = find(deadboundarylist2(j:end)),
+        if (length(intersect(box.vertices(j).index,...
+                             box.vertices(k).index)) == dim)
         %-- dead jth and the kth boundary vertices are adjacent
-            adjnum = box.vertices(deadboundarylist(j)).adjnum;
-            box.vertices(deadboundarylist(j)).adj(adjnum+1) = deadboundarylist(k);
-            box.vertices(deadboundarylist(j)).adjnum = box.vertices(deadboundarylist(j)).adjnum + 1;
-
-            adjnum = box.vertices(deadboundarylist(k)).adjnum;
-            box.vertices(deadboundarylist(k)).adj(adjnum+1) = deadboundarylist(j);
-            box.vertices(deadboundarylist(k)).adjnum = box.vertices(deadboundarylist(k)).adjnum + 1;    
+            %~ box.vertices(deadboundarylist(j)).adj(adjnum+1) = deadboundarylist(k);
+            %~ box.vertices(deadboundarylist(j)).adjnum = box.vertices(deadboundarylist(j)).adjnum + 1;
+            %~ box.vertices(deadboundarylist(k)).adj(adjnum+1) = deadboundarylist(j);
+            %~ box.vertices(deadboundarylist(k)).adjnum = box.vertices(deadboundarylist(k)).adjnum + 1;
+            box.vertices(j).adj(k) = true;
+            box.vertices(j).adjnum = box.vertices(j).adjnum + 1;
+            box.vertices(k).adj(j) = true;
+            box.vertices(k).adjnum = box.vertices(k).adjnum + 1;    
         end
     end
 end
@@ -643,7 +681,8 @@ function heap = OPTheapsort(vertices)
 % Mustafa Kilic, Emre Mengi and E. Alper Yildirim
 % (Modified on July 24th, 2012)
 heap(1) = 1;
-l = length(vertices);
+%~ l = length(vertices);
+l = find(isnan([vertices.adjnum]),1,'first') - 1;
 for j = 2:l
     heap = OPTheapinsert(heap,j-1,vertices,j);
 end
@@ -652,17 +691,17 @@ return;
 %------------------------------------------------------------------%
 % 
 %------------------------------------------------------------------%
-function heap = OPTheapinsert(heap,heaplength,vertices,index)
+function heap = OPTheapinsert(heap,hl,vertices,index)
 % Mustafa Kilic, Emre Mengi and E. Alper Yildirim
 % (Modified on July 24th, 2012)
-l = heaplength;
-l = l+1;
-heap(l) = index;
-while (floor(l/2) > 0) & vertices(heap(l)).qval < vertices(heap(floor(l/2))).qval
-    temp = heap(floor(l/2));
-    heap(floor(l/2)) = heap(l);
-    heap(l) = temp;
-    l = floor(l/2);
+% hl = heaplength;
+hl = hl+1;
+heap(hl) = index;
+while (floor(hl/2) > 0) & vertices(heap(hl)).qval < vertices(heap(floor(hl/2))).qval
+    temp = heap(floor(hl/2));
+    heap(floor(hl/2)) = heap(hl);
+    heap(hl) = temp;
+    hl = floor(hl/2);
 end
 return
 
@@ -673,7 +712,7 @@ function heap = OPTheapremove(heap,heaplength,vertices,index)
 % Mustafa Kilic, Emre Mengi and E. Alper Yildirim
 % (Modified on July 24th, 2012)
 index = find(heap == index);
-vertices(heap(index)).qval = inf;
+vertices(heap(index)).qval = Inf;
 
 temp = heap(index);
 heap(index) = heap(heaplength);
@@ -733,11 +772,15 @@ function OPTplotgraph(box)
 if box.status ~= 1, return, end
 
 % vertices and their adjacendies
-for j = 1:box.heaplength
+for j = 1:box.heaplength,
     cvertex = box.heap(j);
     
-    for k = 1:box.vertices(cvertex).adjnum;
-        avertex = box.vertices(cvertex).adj(k);   
+    %~ for k = 1:box.vertices(cvertex).adjnum;
+    %~     avertex = box.vertices(cvertex).adj(k);   
+    %~     plot([box.vertices(cvertex).coor(1) box.vertices(avertex).coor(1)], ...
+    %~          [box.vertices(cvertex).coor(2) box.vertices(avertex).coor(2)],'k-');
+    %~ end
+    for avertex = find(box.vertices(cvertex).adj);
         plot([box.vertices(cvertex).coor(1) box.vertices(avertex).coor(1)], ...
              [box.vertices(cvertex).coor(2) box.vertices(avertex).coor(2)],'k-');
     end
@@ -746,13 +789,14 @@ for j = 1:box.heaplength
 end
 
 % function evalation points
-for j = 1:size(box.xx,2)
+xx = [box.xx];
+for j = 1:find(isnan(xx(1,:)), 1, 'first'),
     plot(box.xx(1,j), box.xx(2,j), 'b*');
 end
 
 % the outline of the box
 plot([box.bounds(1,1)*[1 1] box.bounds(1,2)*[1 1] box.bounds(1,1)], ...
-     [box.bounds(2,1) box.bounds(2,s2)*[1 1] box.bounds(2,1)*[1 1]], 'c--')
+     [box.bounds(2,1) box.bounds(2,2)*[1 1] box.bounds(2,1)*[1 1]], 'c--')
 
 axis off
 

@@ -28,8 +28,8 @@ Changelog
         problems is extremely slow. The new code is about
         700x faster in 6-dimensions (0.002s compared to 1.5s).
 
-    4*  Changed the data structure of the vertices.
-        Adjacencies are now encoded as a sparse logical matrix.
+    4   Changed the data structure of the vertices.
+        Adjacencies are now encoded as sparse logical vector.
         Set operations are >10x faster this way.
         E.g., try
 
