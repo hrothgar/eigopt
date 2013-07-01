@@ -354,8 +354,6 @@ while (stackl > 0),
     %-- EXPAND TO THE ADJACENT VERTICES
     for adj = find(box.vertices(vertex).adj),
 
-%~ if isinf(box.vertices(adj).qval), 'infval', keyboard, end
-%~ if box.iternum == 5 && adj == 17, 354, keyboard, end
 
         %-- if the boolean is false, then `adj` is already inspected
         %   or to be inspected soon (in the stack)
@@ -386,6 +384,7 @@ while (stackl > 0),
     end
 end
 
+% % number of dead vertices
 % if (mod(box.iternum,10) == 0)
 %     display(notboundaryl + boundaryl);
 % end
@@ -400,7 +399,6 @@ for dead = find(notboundarylist2),
     if OPTisboundary(box.vertices, dead);
         deadisboundaryvertex = 1;
         deadboundaryl = deadboundaryl + 1;
-        %~ deadboundarylist(deadboundaryl) =  dead;
         deadboundarylist2(dead) =  true;
     else
         deadisboundaryvertex = 0;
@@ -429,16 +427,13 @@ for dead = find(notboundarylist2),
         %------------------------------------------------------------------%
     
         box.heap = OPTheapupdate(box.heap,box.heaplength,box.vertices,dead);
-        % 0, if box.heaplength ~= length(box.heap), keyboard, end
     else
         % Dead vertex is not a boundary vertex, remove it
         %------------------------------------------------------------------%
     
         box.heap = OPTheapremove(box.heap, box.heaplength, box.vertices, dead);
-        % 1, if box.heaplength ~= length(box.heap), keyboard, end
 
-        % box.vertices(box.heap(box.heaplength)).qval = Inf;
-        % if dead == 17, 1, keyboard, end
+        %~ box.vertices(box.heap(box.heaplength)).qval = Inf;
         box.vertices(dead).qval = Inf;
         box.heaplength = box.heaplength - 1;
     end
@@ -453,7 +448,6 @@ end
 
 oldlength = box.nvertices;
 alldead2 = boundarylist2 | notboundarylist2;
-%~ alldead = union(boundarylist(1:boundaryl),notboundarylist(1:notboundaryl));
 
 %-- GO THROUGH THE LIST OF DEAD VERTICES ON THE BOUNDARY
 for dead = find(boundarylist2),
@@ -465,27 +459,16 @@ for dead = find(boundarylist2),
     if OPTisboundary(box.vertices, dead);
         deadisboundaryvertex = 1;
         deadboundaryl = deadboundaryl + 1;
-        %~ deadboundarylist(deadboundaryl) = dead;
         deadboundarylist2(dead) = true;
     else
         deadisboundaryvertex = 0;
     end
 
     %-- Determine the adjacent alive vertices
-    %-- FIXME:  try logical arrays instead:
-    %           tic, nnz(setdiff(xx,intersect(xx,yy))), toc
-    %           tic, nnz(sx & xor(sx,sy)), toc
-
-    %! if length(box.vertices(dead).adj) ~= length(~alldead2), keyboard, end
     alivelist2 = box.vertices(dead).adj & ~alldead2;
-    %~alivelist2 = box.vertices(dead).adj & xor(box.vertices(dead).adj, alldead2);
-    %~ alivelist = setdiff(box.vertices(dead).adj, ...
-    %~                     intersect(box.vertices(dead).adj, alldead));
-    %~ alivelength = length(alivelist);
 
     for alive = find(alivelist2),
         if ~length(alive), 487, break, end           %-- hack
-        %~ alive = alivelist(l);
 
         %-- THIS ADJACENT VERTEX IS ALIVE, MUST CREATE A NEW VERTEX
         qnewalive = OPTevalq(box.vertices(alive).coor, box.xx(:,box.iternum), ...
@@ -516,12 +499,7 @@ for dead = find(boundarylist2),
                                              box.xx(:,box.iternum), ...
                                              box.fmin(box.iternum), ...
                                              box.gmin(:,box.iternum), box.gamma);
-        % if isnan(box.vertices(box.nvertices).qval), 515, keyboard, end
-
-        % box.vertices(box.nvertices).qval = OPTevalq(box.vertices(box.nvertices).coor, ...
-        %                                      box.xx(:,box.iternum), ...
-        %                                      box.fmin(box.iternum), ...
-        %                                      box.gmin(:,box.iternum), box.gamma);
+        % if isnan(box.vertices(box.nvertices).qval), 505, keyboard, end
 
         % is this super inefficient? what is going on here?
         % FIXME WHAT IS THIS
@@ -536,22 +514,15 @@ for dead = find(boundarylist2),
         % (iv) initialize its adjacency list
         %------------------------------------------------------------------%
         box.vertices(box.nvertices).adjnum = 1;
-        %~ box.vertices(box.nvertices).adj(1) = alive;
         box.vertices(box.nvertices).adj(alive) = true;
 
         % II - ADD THE NEW VERTEX TO THE HEAP
         %------------------------------------------------------------------%
         box.heap = OPTheapinsert(box.heap,box.heaplength,box.vertices,box.nvertices);
         box.heaplength = box.heaplength + 1;
-        % 2, if box.heaplength ~= length(box.heap), keyboard, end
 
         % III - UPDATE THE ADJACENCY LIST OF THE ALIVE VERTEX
         %------------------------------------------------------------------%
-        %~ k = 1;
-        %~ while (box.vertices(alive).adj(k) ~= dead)
-        %~     k = k+1;
-        %~ end
-        %~ box.vertices(alive).adj(k) = box.nvertices;
 
         box.vertices(alive).adj(dead) = false;
         box.vertices(alive).adj(box.nvertices) = true;
@@ -583,16 +554,11 @@ for dead = find(boundarylist2),
         %------------------------------------------------------------------%
 
         box.heap = OPTheapupdate(box.heap,box.heaplength,box.vertices,dead);
-        % 3, if box.heaplength ~= length(box.heap), keyboard, end
     else
         %-- dead vertex is not a boundary vertex
-        % if box.heaplength == 33, keyboard, end
         box.heap = OPTheapremove(box.heap,box.heaplength,box.vertices,dead);
         box.heaplength = box.heaplength - 1;
-        % 4, if box.heaplength ~= length(box.heap), keyboard, end
-        % if dead == 17, 2, keyboard, end
         box.vertices(dead).qval = Inf;
-        % if length(box.heap) ~= box.heaplength, keyboard, end
     end
 end
 
@@ -603,11 +569,9 @@ for j = oldlength+1:box.nvertices
         % FIXME eliminate inefficiencies
         if (length(intersect(box.vertices(j).index,box.vertices(k).index)) == dim)
             %-- newly added jth and kth vertices are adjacent
-            %~ box.vertices(j).adj(adjnum+1) = k;
             box.vertices(j).adj(k) = true;
             box.vertices(j).adjnum = box.vertices(j).adjnum + 1;
 
-            %~ box.vertices(k).adj(adjnum+1) = j;
             box.vertices(k).adj(j) = true;
             box.vertices(k).adjnum = box.vertices(k).adjnum + 1;    
         end
@@ -615,35 +579,23 @@ for j = oldlength+1:box.nvertices
 end
 
 for j = oldlength+1:box.nvertices
-    %~ for k = 1:deadboundaryl
     for k = find(deadboundarylist2),
         if (length(intersect(box.vertices(j).index, box.vertices(k).index)) == dim)
             %-- newly added jth and the kth boundary vertices are adjacent
-            %~ adjnum = box.vertices(j).adjnum;
-            %~ box.vertices(j).adj(adjnum+1) = deadboundarylist(k);
             box.vertices(j).adj(k) = true;
             box.vertices(j).adjnum = box.vertices(j).adjnum + 1;
     
-            %~ adjnum = box.vertices(deadboundarylist(k)).adjnum;
-            %~ box.vertices(deadboundarylist(k)).adj(adjnum+1) = j;
-            %~ box.vertices(deadboundarylist(k)).adjnum = box.vertices(deadboundarylist(k)).adjnum + 1;    
             box.vertices(k).adj(j) = true;
             box.vertices(k).adjnum = box.vertices(k).adjnum + 1;
         end
     end
 end
 
-%~ for j = 1:deadboundaryl
-%~     for k = j+1:deadboundaryl
 for j = find(deadboundarylist2),
     for k = find(deadboundarylist2(j:end)),
         if (length(intersect(box.vertices(j).index,...
                              box.vertices(k).index)) == dim)
         %-- dead jth and the kth boundary vertices are adjacent
-            %~ box.vertices(deadboundarylist(j)).adj(adjnum+1) = deadboundarylist(k);
-            %~ box.vertices(deadboundarylist(j)).adjnum = box.vertices(deadboundarylist(j)).adjnum + 1;
-            %~ box.vertices(deadboundarylist(k)).adj(adjnum+1) = deadboundarylist(j);
-            %~ box.vertices(deadboundarylist(k)).adjnum = box.vertices(deadboundarylist(k)).adjnum + 1;
             box.vertices(j).adj(k) = true;
             box.vertices(j).adjnum = box.vertices(j).adjnum + 1;
             box.vertices(k).adj(j) = true;
@@ -705,7 +657,6 @@ function heap = OPTheapsort(vertices)
 % Mustafa Kilic, Emre Mengi and E. Alper Yildirim
 % (Modified on July 24th, 2012)
 heap(1) = 1;
-%~ l = length(vertices);
 l = find(isnan([vertices.adjnum]),1,'first') - 1;
 for j = 2:l
     heap = OPTheapinsert(heap,j-1,vertices,j);
