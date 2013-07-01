@@ -9,7 +9,7 @@ if nargin < 2, dimension = 2; end
 
 %%% OUTPUT
 opt.plotfreq = 20;          % plotting frequency (if 2D)
-opt.dispfreq = 10;           % verbose output frequency
+opt.dispfreq = 1;           % verbose output frequency
 
 %%% MESH
 opt.splitting = 1;          % master flag for splitting
@@ -18,10 +18,10 @@ opt.maxquadspercell = 80;   % maximum number of iterations on a single cell
 
 %%% STOPPING CRITERIA
 opt.maxfeval = 2000;        % maximum iteration count, in a sense
-opt.tol = 1e-6;             % desired level of accuracy
+opt.tol = 1e-3;             % desired level of accuracy
 
 %%% THE PROBLEM
-opt.gamma = -4;             % the gamma thing
+opt.gamma = -1;             % the gamma thing
 opt.minmax = 0;             % minimize (==0) or maximize (~=0) ?
 
 
