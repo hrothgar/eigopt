@@ -31,9 +31,9 @@ end
 
 %-- set user options
 if ~exist('opts') || ~isstruct(opts), opts = []; end
-defaults.plotfreq   = Inf;      %-- frequency of plotting (if 2-D)
+defaults.plotfreq   = 1;      %-- frequency of plotting (if 2-D)
 defaults.dispfreq   = 10;       %-- frequency of verbose output of status
-defaults.splitting  = 1;        %-- recursively split into subboxes?
+defaults.splitting  = 0;        %-- recursively split into subboxes?
 defaults.searchtype = 0;        %-- 0 == breadth-first; 1 == depth-first
 defaults.maxquads   = 40;       %-- maximum number of quadratics per box
 defaults.maxfeval   = 4000;     %-- maximum number of function evaluations
@@ -191,7 +191,7 @@ while abs(boxes(obi).UB - boxes(obi).LB) > opts.tol && nfevals < opts.maxfeval,
     hist(ii) = struct(  'nfevals',  nfevals, ...
                         'nboxes',   length(actives), ...
                         'nverts',   sum([boxes(actives).heaplength]), ...
-                        'x',        boxes(obi).xx(:,end), ...
+                        'x',        boxes(obi).xx(:,boxes(obi).iternum), ...
                         'UB',       boxes(obi).UB, ...
                         'LB',       boxes(obi).LB, ...
                         'err',      boxes(obi).UB - boxes(obi).LB, ...
@@ -212,7 +212,7 @@ end
 hist(ii+1:end) = [];
 boxes(boxcnt+1:end) = [];
 fmin = boxes(obi).UB;
-xmin = boxes(obi).xx(:,end);
+xmin = boxes(obi).xx(:,boxes(obi).iternum);
 
 return
 
@@ -354,6 +354,9 @@ while (stackl > 0),
     %-- EXPAND TO THE ADJACENT VERTICES
     for adj = find(box.vertices(vertex).adj),
 
+%~ if isinf(box.vertices(adj).qval), 'infval', keyboard, end
+%~ if box.iternum == 5 && adj == 17, 354, keyboard, end
+
         %-- if the boolean is false, then `adj` is already inspected
         %   or to be inspected soon (in the stack)
         if ~( boundarylist2(adj) | notboundarylist2(adj) | stack2(adj) ),
@@ -435,6 +438,7 @@ for dead = find(notboundarylist2),
         % 1, if box.heaplength ~= length(box.heap), keyboard, end
 
         % box.vertices(box.heap(box.heaplength)).qval = Inf;
+        % if dead == 17, 1, keyboard, end
         box.vertices(dead).qval = Inf;
         box.heaplength = box.heaplength - 1;
     end
@@ -474,13 +478,13 @@ for dead = find(boundarylist2),
 
     %! if length(box.vertices(dead).adj) ~= length(~alldead2), keyboard, end
     alivelist2 = box.vertices(dead).adj & ~alldead2;
-    %~ alivelist2 = box.vertices(dead).adj & xor(box.vertices(dead).adj, alldead2);
+    %~alivelist2 = box.vertices(dead).adj & xor(box.vertices(dead).adj, alldead2);
     %~ alivelist = setdiff(box.vertices(dead).adj, ...
     %~                     intersect(box.vertices(dead).adj, alldead));
     %~ alivelength = length(alivelist);
 
     for alive = find(alivelist2),
-        if ~length(dead), break, end           %-- hack
+        if ~length(alive), 487, break, end           %-- hack
         %~ alive = alivelist(l);
 
         %-- THIS ADJACENT VERTEX IS ALIVE, MUST CREATE A NEW VERTEX
@@ -512,8 +516,8 @@ for dead = find(boundarylist2),
                                              box.xx(:,box.iternum), ...
                                              box.fmin(box.iternum), ...
                                              box.gmin(:,box.iternum), box.gamma);
-        if isnan(box.vertices(box.nvertices).qval), 515, keyboard, end
-% if box.nvertices == 34, keyboard, end
+        % if isnan(box.vertices(box.nvertices).qval), 515, keyboard, end
+
         % box.vertices(box.nvertices).qval = OPTevalq(box.vertices(box.nvertices).coor, ...
         %                                      box.xx(:,box.iternum), ...
         %                                      box.fmin(box.iternum), ...
@@ -577,7 +581,7 @@ for dead = find(boundarylist2),
 
         % (iv) finally update the heap
         %------------------------------------------------------------------%
-    
+
         box.heap = OPTheapupdate(box.heap,box.heaplength,box.vertices,dead);
         % 3, if box.heaplength ~= length(box.heap), keyboard, end
     else
@@ -586,6 +590,7 @@ for dead = find(boundarylist2),
         box.heap = OPTheapremove(box.heap,box.heaplength,box.vertices,dead);
         box.heaplength = box.heaplength - 1;
         % 4, if box.heaplength ~= length(box.heap), keyboard, end
+        % if dead == 17, 2, keyboard, end
         box.vertices(dead).qval = Inf;
         % if length(box.heap) ~= box.heaplength, keyboard, end
     end
@@ -649,8 +654,8 @@ end
 
 box.LB = box.vertices(box.heap(1)).qval;
 
-if any(isinf([box.vertices(box.heap).qval])), keyboard, end
-if any(isnan([box.vertices(box.heap).qval])), keyboard, end
+% if any(isinf([box.vertices(box.heap).qval])), keyboard, end
+% if any(isnan([box.vertices(box.heap).qval])), keyboard, end
 return
 
 
@@ -753,7 +758,7 @@ while ( (2*ii <= heaplength) ...
         ii = 2*ii;
     end
 end
-heap = heap(1:end-1);
+% heap = heap(1:end-1);
 return
 
 %------------------------------------------------------------------%
@@ -794,24 +799,19 @@ if box.status ~= 1, return, end
 % vertices and their adjacendies
 for j = 1:box.heaplength,
     cvertex = box.heap(j);
-    
-    %~ for k = 1:box.vertices(cvertex).adjnum;
-    %~     avertex = box.vertices(cvertex).adj(k);   
-    %~     plot([box.vertices(cvertex).coor(1) box.vertices(avertex).coor(1)], ...
-    %~          [box.vertices(cvertex).coor(2) box.vertices(avertex).coor(2)],'k-');
-    %~ end
+
     for avertex = find(box.vertices(cvertex).adj);
         plot([box.vertices(cvertex).coor(1) box.vertices(avertex).coor(1)], ...
              [box.vertices(cvertex).coor(2) box.vertices(avertex).coor(2)],'k-');
     end
-    
+
     plot(box.vertices(cvertex).coor(1),box.vertices(cvertex).coor(2),'k*');
 end
 
 % function evalation points
 xx = [box.xx];
-for j = 1:find(isnan(xx(1,:)), 1, 'first'),
-    plot(box.xx(1,j), box.xx(2,j), 'b*');
+for j = 1:find(isnan(xx(1,:)), 1, 'first')-1,
+    plot(xx(1,j), xx(2,j), 'b*');
 end
 
 % the outline of the box

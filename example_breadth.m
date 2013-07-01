@@ -8,7 +8,7 @@ if nargin < 2, dimension = 2; end
 
 
 %%% OUTPUT
-opt.plotfreq = 20;          % plotting frequency (if 2D)
+opt.plotfreq = 1;          % plotting frequency (if 2D)
 opt.dispfreq = 1;           % verbose output frequency
 
 %%% MESH
@@ -18,7 +18,7 @@ opt.maxquadspercell = 80;   % maximum number of iterations on a single cell
 
 %%% STOPPING CRITERIA
 opt.maxfeval = 2000;        % maximum iteration count, in a sense
-opt.tol = 1e-3;             % desired level of accuracy
+opt.tol = 1e-10;             % desired level of accuracy
 
 %%% THE PROBLEM
 opt.gamma = -1;             % the gamma thing
@@ -61,7 +61,7 @@ switch n
         xlabel('iterations')
 
     case 4
-        rng(1);
+        rng(3);
         dim = dimension;
         for d = 1:dim+1,
             A = randn(dim,dim);
@@ -69,8 +69,9 @@ switch n
         end
         ee = ones(1,dim);
         [r,bb] = eigopt_multi_mesh_breadth('minimize_max_multi',-ee,ee,pars,opt);
-        figure; plot_results(r);
-        figure; hist([bb.iternum],15);
-        title('Histogram of the age of mesh cells')
-        xlabel('iterations')
+        r(end).z
+        % figure; plot_results(r);
+        % figure; hist([bb.iternum],15);
+        % title('Histogram of the age of mesh cells')
+        % xlabel('iterations')
 end
